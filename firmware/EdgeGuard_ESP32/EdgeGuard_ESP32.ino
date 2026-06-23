@@ -4,6 +4,8 @@
 #include <DHT.h>
 
 #include "config.h"
+#include "edgeguard_control.h"
+#include "edgeguard_event_log.h"
 #include "secrets.h"
 
 // -------------------- GLOBAL OBJECTS --------------------
@@ -11,81 +13,14 @@ DHT dht(PIN_DHT, DHT11);
 WebServer server(80);
 SemaphoreHandle_t gMutex;
 
-// -------------------- ENUMS --------------------
-enum class Mode : uint8_t {
-  AUTO,
-  MANUAL,
-  AWAY
-};
-
-enum class State : uint8_t {
-  BOOT,
-  CALIBRATING,
-  AUTO_MONITORING,
-  MANUAL_OVERRIDE,
-  ALERT,
-  FAULT
-};
-
-// -------------------- DATA STRUCTURES --------------------
-struct SensorSnapshot {
-  float temperatureC = NAN;
-  float humidity = NAN;
-
-  bool dhtOk = false;
-
-  uint16_t distanceCm = 0;
-  bool distanceOk = false;
-
-  bool ldrRawHigh = false;
-  bool lightIsDark = false;
-
-  uint32_t timestampMs = 0;
-};
-
-struct SystemSnapshot {
-  Mode mode = Mode::AUTO;
-  State state = State::BOOT;
-
-  bool occupied = false;
-  bool relay1On = false;
-  bool relay2On = false;
-  bool temperatureAlert = false;
-
-  String faultReason = "";
-  uint32_t timestampMs = 0;
-};
-
+ControlConfig gControlConfig;
+ControlContext gControlContext;
 SensorSnapshot gSensor;
 SystemSnapshot gSystem;
 
-// -------------------- EVENT LOG RING BUFFER --------------------
-String gEvents[EVENT_LOG_SIZE];
-uint8_t gEventHead = 0;
-uint8_t gEventCount = 0;
+EdgeGuardEventLog gEventLog;
 
 // -------------------- UTILS --------------------
-const char* modeName(Mode mode) {
-  switch (mode) {
-    case Mode::AUTO: return "AUTO";
-    case Mode::MANUAL: return "MANUAL";
-    case Mode::AWAY: return "AWAY";
-    default: return "UNKNOWN";
-  }
-}
-
-const char* stateName(State state) {
-  switch (state) {
-    case State::BOOT: return "BOOT";
-    case State::CALIBRATING: return "CALIBRATING";
-    case State::AUTO_MONITORING: return "AUTO_MONITORING";
-    case State::MANUAL_OVERRIDE: return "MANUAL_OVERRIDE";
-    case State::ALERT: return "ALERT";
-    case State::FAULT: return "FAULT";
-    default: return "UNKNOWN";
-  }
-}
-
 String jsonEscape(String value) {
   value.replace("\\", "\\\\");
   value.replace("\"", "\\\"");
@@ -96,13 +31,7 @@ String jsonEscape(String value) {
 void logEvent(const String& message) {
   String line = "[" + String(millis() / 1000) + "s] " + message;
 
-  gEvents[gEventHead] = line;
-  gEventHead = (gEventHead + 1) % EVENT_LOG_SIZE;
-
-  if (gEventCount < EVENT_LOG_SIZE) {
-    gEventCount++;
-  }
-
+  gEventLog.push(line.c_str());
   Serial.println(line);
 }
 
@@ -161,96 +90,19 @@ SensorSnapshot readSensors() {
 
 // -------------------- CONTROL STATE MACHINE --------------------
 void updateControl(const SensorSnapshot& sensor) {
-  static uint8_t dhtFailCount = 0;
-  static uint8_t ultrasonicFailCount = 0;
-
-  static bool temperatureAlertLatched = false;
-  static uint32_t lastOccupiedMs = 0;
-
   static State previousState = State::BOOT;
   static bool previousRelay1 = false;
   static bool previousRelay2 = false;
 
-  SystemSnapshot sys;
+  SystemSnapshot previousSystem;
 
   if (xSemaphoreTake(gMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-    sys = gSystem;
+    previousSystem = gSystem;
     xSemaphoreGive(gMutex);
   }
 
-  if (sensor.dhtOk) {
-    dhtFailCount = 0;
-  } else {
-    dhtFailCount++;
-  }
-
-  if (sensor.distanceOk) {
-    ultrasonicFailCount = 0;
-  } else {
-    ultrasonicFailCount++;
-  }
-
-  bool sensorFault = false;
-  String faultReason = "";
-
-  if (dhtFailCount >= 5) {
-    sensorFault = true;
-    faultReason = "DHT11 failed 5 times";
-  }
-
-  if (ultrasonicFailCount >= 5) {
-    sensorFault = true;
-    if (faultReason.length() > 0) {
-      faultReason += "; ";
-    }
-    faultReason += "HC-SR04 timeout 5 times";
-  }
-
-  bool instantOccupied = sensor.distanceOk && sensor.distanceCm > 0 && sensor.distanceCm <= OCCUPIED_DISTANCE_CM;
-
-  if (instantOccupied) {
-    lastOccupiedMs = millis();
-  }
-
-  bool occupiedHeld = instantOccupied || ((millis() - lastOccupiedMs) < UNOCCUPIED_TIMEOUT_MS);
-
-  if (sensor.dhtOk) {
-    if (sensor.temperatureC >= TEMP_ALERT_ON_C) {
-      temperatureAlertLatched = true;
-    } else if (sensor.temperatureC <= TEMP_ALERT_OFF_C) {
-      temperatureAlertLatched = false;
-    }
-  }
-
-  sys.occupied = occupiedHeld;
-  sys.temperatureAlert = temperatureAlertLatched;
-  sys.faultReason = "";
-  sys.timestampMs = millis();
-
-  if (sensorFault) {
-    sys.state = State::FAULT;
-    sys.faultReason = faultReason;
-    sys.relay1On = false;
-    sys.relay2On = false;
-  } else if (sys.mode == Mode::MANUAL) {
-    sys.state = State::MANUAL_OVERRIDE;
-    // Keep manually selected relay states.
-  } else if (sys.mode == Mode::AWAY) {
-    sys.relay1On = false;
-
-    if (instantOccupied) {
-      sys.state = State::ALERT;
-      sys.relay2On = true;
-    } else {
-      sys.state = State::AUTO_MONITORING;
-      sys.relay2On = false;
-    }
-  } else {
-    // AUTO mode
-    sys.state = temperatureAlertLatched ? State::ALERT : State::AUTO_MONITORING;
-    sys.relay1On = sensor.lightIsDark && occupiedHeld;
-    sys.relay2On = temperatureAlertLatched;
-  }
+  ControlResult result = updateControlLogic(sensor, previousSystem, gControlContext, gControlConfig, millis());
+  SystemSnapshot sys = result.system;
 
   applyRelays(sys.relay1On, sys.relay2On);
 
@@ -337,7 +189,7 @@ String buildStatusJson() {
   json += ",";
 
   json += "\"fault_reason\":\"";
-  json += jsonEscape(sys.faultReason);
+  json += jsonEscape(String(faultReason(sys.faultCode)));
   json += "\",";
 
   json += "\"uptime_s\":";
@@ -350,16 +202,14 @@ String buildStatusJson() {
 
 String buildLogsJson() {
   String json = "[";
+  const size_t eventCount = gEventLog.count();
 
-  uint8_t start = (gEventHead + EVENT_LOG_SIZE - gEventCount) % EVENT_LOG_SIZE;
-
-  for (uint8_t i = 0; i < gEventCount; i++) {
-    uint8_t index = (start + i) % EVENT_LOG_SIZE;
+  for (size_t i = 0; i < eventCount; i++) {
     json += "\"";
-    json += jsonEscape(gEvents[index]);
+    json += jsonEscape(String(gEventLog.get(i)));
     json += "\"";
 
-    if (i < gEventCount - 1) {
+    if (i < eventCount - 1) {
       json += ",";
     }
   }
@@ -786,6 +636,12 @@ void setup() {
   delay(1000);
 
   gMutex = xSemaphoreCreateMutex();
+
+  gControlConfig = defaultControlConfig();
+  gControlConfig.occupiedDistanceCm = OCCUPIED_DISTANCE_CM;
+  gControlConfig.unoccupiedTimeoutMs = UNOCCUPIED_TIMEOUT_MS;
+  gControlConfig.tempAlertOnC = TEMP_ALERT_ON_C;
+  gControlConfig.tempAlertOffC = TEMP_ALERT_OFF_C;
 
   setupPins();
   dht.begin();

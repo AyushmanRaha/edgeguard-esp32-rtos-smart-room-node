@@ -1,39 +1,15 @@
-# Architecture
+# Firmware architecture
 
-EdgeGuard-ESP32 is a real-time smart room monitoring node built on ESP32.
+EdgeGuard keeps Arduino IDE compatibility while separating testable decisions from hardware IO.
 
-## Main firmware blocks
+## Arduino integration layer
+`firmware/EdgeGuard_ESP32/EdgeGuard_ESP32.ino` owns Arduino headers, Wi-Fi, WebServer, DHT library use, GPIO reads/writes, FreeRTOS tasks, and HTML/JSON endpoints.
 
-1. SensorTask
-   - Reads DHT11, HC-SR04, and LDR.
-   - Updates the shared sensor snapshot.
+## Pure control logic
+`edgeguard_control.cpp` receives `SensorSnapshot`, previous `SystemSnapshot`, `ControlContext`, config, and time in milliseconds. It returns desired state and relay outputs without calling Arduino APIs. This makes FAULT, AUTO, AWAY, MANUAL, hysteresis, and occupancy timeout testable on a laptop.
 
-2. ControlTask
-   - Runs the state machine.
-   - Handles occupancy detection.
-   - Applies relay decisions.
-   - Detects fault conditions.
+## Event log
+`edgeguard_event_log.cpp` is a fixed-size ring buffer. It avoids heap requirements and works in both host tests and Arduino builds.
 
-3. WebTask
-   - Serves a local dashboard.
-   - Provides JSON endpoints.
-   - Handles manual mode and relay controls.
-
-4. HeartbeatTask
-   - Blinks green LED during normal operation.
-   - Blinks red LED during ALERT or FAULT.
-
-## Data flow
-
-```text
-Sensors
-  ↓
-SensorTask
-  ↓
-Shared Sensor Snapshot
-  ↓
-ControlTask
-  ↓
-Relay Driver + Event Log + System Snapshot
-  ↓
-Web Dashboard
+## Why host tests are possible
+The decision code depends only on plain C++ types and an injected timestamp. The host build compiles the same `.cpp` files with CMake and assert-based tests.
