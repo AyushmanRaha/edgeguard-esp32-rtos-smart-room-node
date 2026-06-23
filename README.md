@@ -4,6 +4,31 @@
 
 EdgeGuard is an embedded-software portfolio project: an ESP32 Arduino smart-room node with FreeRTOS-style tasks, local web dashboard, deterministic control logic, host unit tests, and CI. **No hardware changes are required for this reliability upgrade.**
 
+
+EdgeGuard-ESP32 is an ESP32-based RTOS-style smart room monitoring node.
+
+It uses sensors such as DHT11, HC-SR04, and LDR, along with a relay module and local web dashboard, to monitor environmental and room conditions and control low-voltage actuators.
+
+## Repository Structure
+
+```text
+.github/
+  README.md
+  workflows/
+
+docs/
+
+firmware/
+  EdgeGuard_ESP32/
+
+hardware/
+
+scripts/
+
+tests/
+  README.md
+  host_logic_tests/
+
 ## Hardware used
 - ESP32 DevKit
 - DHT11 temperature/humidity sensor
