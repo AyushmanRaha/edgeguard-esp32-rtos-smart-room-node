@@ -1,31 +1,27 @@
-# Interview Notes
+# Interview notes
 
-## Project summary
+## Recruiter explanation
+EdgeGuard is a practical ESP32 embedded project that shows hardware integration, FreeRTOS-style task decomposition, a local web dashboard, safety-aware relay usage, and professional software practices such as unit tests and CI.
 
-EdgeGuard-ESP32 is a real-time embedded smart room node using ESP32, DHT11, HC-SR04, LDR module, relay module, LEDs, and a local web dashboard.
+## Resume bullet variations
+- Built an ESP32 smart-room node with DHT11, HC-SR04, LDR, relays, LEDs, and a local web dashboard.
+- Refactored Arduino firmware into hardware IO and pure C++ control logic for host-side unit testing.
+- Implemented AUTO, MANUAL, AWAY, ALERT, and FAULT modes with deterministic relay safety behavior.
+- Added GitHub Actions CI to run host tests, validation scripts, and Arduino CLI compile checks.
+- Designed fault handling for repeated DHT11 and HC-SR04 failures with relays forced off.
+- Documented safe low-voltage relay wiring and HC-SR04 Echo level shifting for ESP32 GPIO.
+- Used FreeRTOS-style tasks to separate sensing, control, web serving, and heartbeat indicators.
+- Created an interview-ready embedded portfolio project without cloud services or paid dependencies.
 
-## What I implemented
+## Common questions
+**Why ESP32?** It has Wi-Fi, enough GPIO, Arduino IDE support, and FreeRTOS under the Arduino core.
 
-- Sensor acquisition using GPIO and timing logic.
-- HC-SR04 echo protection using resistor voltage divider.
-- Real-time task separation using FreeRTOS-style tasks.
-- State machine for AUTO, MANUAL, AWAY, ALERT, and FAULT modes.
-- Relay driver abstraction with active-low configuration.
-- Event ring buffer for diagnostics.
-- Local dashboard with REST-style endpoints.
+**Why FreeRTOS-style tasks?** Tasks keep sensing, control, web serving, and LED heartbeat responsive without a single blocking loop.
 
-## Important design choices
+**Why split pure logic from hardware IO?** It lets the same state-machine decisions compile and run on a laptop, so behavior can be tested without sensors attached.
 
-- I avoided 230V AC mains and used low-voltage LEDs as relay loads.
-- I used a timeout for occupancy so the relay does not chatter.
-- I added temperature hysteresis to avoid rapid ON/OFF switching.
-- I added fault detection for repeated DHT11 or HC-SR04 failures.
+**How did you protect ESP32 from HC-SR04 Echo?** Echo is divided down with resistors before GPIO18 so the ESP32 never receives a 5 V signal.
 
-## Possible future improvements
+**What does CI verify without hardware?** It runs C++ host tests, checks frozen pins and required files, and compiles the Arduino sketch with dummy credentials.
 
-- Move from Arduino IDE to ESP-IDF.
-- Add non-volatile settings storage using NVS.
-- Add MQTT support.
-- Add OTA firmware updates.
-- Add unit tests for the state machine.
-- Add power profiling.
+**What would you improve next?** Add more telemetry history, calibrate thresholds per room, and add optional nonvolatile settings while keeping the same hardware.

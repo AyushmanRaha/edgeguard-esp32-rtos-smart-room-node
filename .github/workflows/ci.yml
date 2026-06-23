@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential
+      - name: Run host tests
+        run: bash scripts/run_host_tests.sh
+      - name: Validate repository
+        run: python3 scripts/validate_repo.py
+      - name: Check firmware structure
+        run: python3 scripts/check_firmware_structure.py
+
+  arduino-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Arduino CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+          echo "$PWD/bin" >> "$GITHUB_PATH"
+      - name: Install ESP32 core and libraries
+        run: |
+          arduino-cli config init
+          arduino-cli config set board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+          arduino-cli lib install "DHT sensor library"
+          arduino-cli lib install "Adafruit Unified Sensor"
+      - name: Create CI secrets
+        run: |
+          cat > firmware/EdgeGuard_ESP32/secrets.h <<'SECRETS'
+          #pragma once
+          #define WIFI_SSID "CI_DUMMY_WIFI"
+          #define WIFI_PASSWORD "CI_DUMMY_PASSWORD"
+          SECRETS
+      - name: Compile ESP32 sketch
+        run: arduino-cli compile --fqbn esp32:esp32:esp32 firmware/EdgeGuard_ESP32

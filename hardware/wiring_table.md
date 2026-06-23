@@ -1,26 +1,29 @@
-# Wiring Table
+# EdgeGuard wiring table
 
-## ESP32 Pin Map
+| Module | Signal | ESP32 GPIO | Notes |
+|---|---|---:|---|
+| DHT11 | DATA | 4 | Keep original wiring. |
+| HC-SR04 | TRIG | 5 | ESP32 output to sensor trigger. |
+| HC-SR04 | ECHO | 18 | Must pass through voltage divider. |
+| LDR digital module | DO | 34 | Input only pin is fine for digital output. |
+| Relay channel 1 | IN1 | 26 | Low-voltage LED load only. |
+| Relay channel 2 | IN2 | 27 | Low-voltage LED load only. |
+| Green LED | Anode/control | 23 | Heartbeat. |
+| Red LED | Anode/control | 22 | Alert/fault. |
 
-| ESP32 Pin | Component | Purpose |
-|---|---|---|
-| GPIO 4 | DHT11 DATA | Temperature/humidity input |
-| GPIO 5 | HC-SR04 TRIG | Ultrasonic trigger |
-| GPIO 18 | HC-SR04 ECHO through divider | Ultrasonic echo input |
-| GPIO 34 | LDR DO | Digital light/dark input |
-| GPIO 26 | Relay IN1 | Room light LED load |
-| GPIO 27 | Relay IN2 | Alert LED load |
-| GPIO 23 | Green LED | Heartbeat |
-| GPIO 22 | Red LED | Alert/fault indication |
-| 3V3 | DHT11, LDR | 3.3V sensor power |
-| VIN/5V | HC-SR04, Relay module | 5V module power |
-| GND | All modules | Common ground |
+All modules must share a common GND with the ESP32.
 
-## HC-SR04 Echo Divider
-
-HC-SR04 Echo is not connected directly to ESP32.
-
-Wiring:
+## HC-SR04 Echo divider
 
 ```text
-Echo ---- 2.2kΩ ---- GPIO18 ---- 2.2kΩ ---- GND
+HC-SR04 Echo (5 V) --- R1 ---+--- ESP32 GPIO18
+                             |
+                             R2
+                             |
+                            GND
+```
+
+Use R1 = 2.2 kΩ and R2 = 2.2 kΩ for about 2.5 V at GPIO18, which is safely read as HIGH by the ESP32. If you want closer to 3.0 V, use about R1 = 2.2 kΩ and R2 = 3.2 kΩ. A practical student build can approximate R2 = 3.2 kΩ by wiring 2.2 kΩ + 1 kΩ in series on the lower side.
+
+## Relay safety
+Relays in this project switch only low-voltage LED loads. Do not use this project as AC mains wiring guidance.
