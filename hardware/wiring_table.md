@@ -1,25 +1,14 @@
 # Wiring Table
 
-This project is for low-voltage LED relay demonstrations only. Do not connect mains AC.
+| Device | Signal | ESP32 GPIO | Electrical note |
+| --- | --- | ---: | --- |
+| DHT11 | DATA | 4 | Use normal DHT11 module wiring |
+| HC-SR04 | TRIG | 5 | ESP32 output |
+| HC-SR04 | ECHO | 18 | Divide 5 V echo to 3.3 V |
+| LDR module | DO | 34 | Digital input |
+| Relay module | IN1 | 26 | `RELAY_ACTIVE_LOW = true` |
+| Relay module | IN2 | 27 | `RELAY_ACTIVE_LOW = true` |
+| Green LED | Anode/control | 23 | Use suitable resistor/module |
+| Red LED | Anode/control | 22 | Use suitable resistor/module |
 
-| ESP32 Pin | Connected Module Pin | Purpose | Notes |
-|---|---|---|---|
-| GPIO 4 | DHT11 DATA | Temperature/humidity input | DHT11 data line |
-| GPIO 5 | HC-SR04 TRIG | Ultrasonic trigger | ESP32 output |
-| GPIO 18 | HC-SR04 ECHO through divider | Ultrasonic echo input | Level shift from 5 V echo |
-| GPIO 34 | LDR DO | Digital light/dark input | Input-only ESP32 pin |
-| GPIO 26 | Relay IN1 | Room light LED load | Active-low by default |
-| GPIO 27 | Relay IN2 | Alert LED load | Active-low by default |
-| GPIO 23 | Green LED | Normal heartbeat | GPIO output |
-| GPIO 22 | Red LED | Alert/fault indication | GPIO output |
-| 3V3 | DHT11, LDR | Sensor power | Use module-compatible voltage |
-| VIN/5V | HC-SR04, relay module | Module power | Confirm module requirements |
-| GND | All modules | Common ground | Required for reliable readings |
-
-## HC-SR04 echo divider
-
-HC-SR04 ECHO is typically 5 V and must not be connected directly to the ESP32 input. Use a voltage divider or suitable level shifter before GPIO 18.
-
-```text
-Echo ---- 2.2 kΩ ---- GPIO18 ---- 2.2 kΩ ---- GND
-```
+All examples assume low-voltage DC prototyping only.
