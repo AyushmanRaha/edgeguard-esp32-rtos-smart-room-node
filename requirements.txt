@@ -1,1 +1,2 @@
-platformio==6.1.13
+# PlatformIO Core for reproducible ESP32 Arduino builds in local development and CI.
+platformio>=6.1,<7

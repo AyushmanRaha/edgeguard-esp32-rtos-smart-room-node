@@ -1,20 +1,16 @@
-# CI
+# Continuous Integration
 
-The GitHub Actions workflow at `.github/workflows/ci.yml` runs on pushes to `main`, pull requests to `main`, and manual dispatch.
+The workflow in `.github/workflows/ci.yml` runs on pushes to `main`, pull requests to `main`, and manual dispatch. Permissions are limited to `contents: read`, and concurrency cancels older runs for the same ref.
 
-## Firmware job
+## Firmware build
+The firmware build checks out the repository, sets up Python, installs dependencies from `requirements.txt`, caches PlatformIO directories, runs `python tools/verify_repo.py`, runs `pio run`, and uploads firmware artifacts when produced:
 
-- Checks out the repo.
-- Sets up Python.
-- Caches pip and PlatformIO package cache directories.
-- Installs the pinned PlatformIO Core dependency from `requirements.txt`.
-- Runs `pio run` without requiring ESP32 hardware or Wi-Fi credentials.
-- Uploads firmware binary, ELF, and map artifacts when generated.
+- `firmware.bin`
+- `firmware.elf`
+- `firmware.map`
 
-## Documentation check job
+## Repository verification
+`tools/verify_repo.py` checks required files, confirms the duplicate Wi-Fi example and local `secrets.h` are absent, rejects likely real Wi-Fi credentials, verifies README local links, and scans tracked text files for disallowed repository-positioning terms.
 
-- Verifies `README.md` and required docs exist.
-- Verifies no `secrets.h` file is committed.
-- Performs a lightweight scan for obvious real-secret placeholder mistakes.
-
-The workflow uses `contents: read` permissions and concurrency cancellation to avoid redundant runs on the same branch.
+## Static analysis note
+`pio check` is not enabled by default because embedded framework checks can add noisy third-party library findings. It can be run locally when investigating a focused firmware change.

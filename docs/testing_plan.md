@@ -1,44 +1,19 @@
 # Testing Plan
 
-## Test 1: ESP32 boot
+## Automated checks
+- Run `python tools/verify_repo.py`.
+- Run `pio run` from the repository root.
 
-Expected:
-- Serial Monitor starts at 115200 baud.
-- Boot logs appear.
-
-## Test 2: DHT11
-
-Expected:
-- Temperature and humidity values appear.
-- If disconnected, FAULT state appears after repeated failures.
-
-## Test 3: HC-SR04
-
-Expected:
-- Distance value changes when object moves.
-- Occupancy becomes YES when object is within threshold.
-
-## Test 4: LDR
-
-Expected:
-- Covering sensor changes dashboard to DARK.
-- Light exposure changes dashboard to BRIGHT.
-
-## Test 5: Relay 1
-
-Expected:
-- AUTO mode: dark + occupied turns Relay 1 ON.
-- Unoccupied timeout turns Relay 1 OFF.
-
-## Test 6: Relay 2
-
-Expected:
-- AWAY mode + movement turns Relay 2 ON.
-- Manual button can turn Relay 2 ON/OFF.
-
-## Test 7: Web dashboard
-
-Expected:
-- `/` displays dashboard.
-- `/api/status` returns JSON.
-- `/api/logs` returns event log.
+## Manual hardware checklist
+1. Boot: verify serial output, LEDs, dashboard availability, and no unexpected fault.
+2. DHT11 normal: confirm temperature and humidity become non-null.
+3. DHT11 fault: disconnect data temporarily and confirm repeated failures lead to `FAULT` and relays off.
+4. HC-SR04 normal: move a target within and beyond the threshold and confirm distance changes.
+5. HC-SR04 fault: block echo or disconnect safely and confirm timeout protection plus fail-safe behavior after repeated failures.
+6. LDR polarity: confirm `light_is_dark` is true in darkness with `LDR_DARK_WHEN_HIGH = true`.
+7. AUTO behavior: Relay 1 turns on only when dark and occupied; Relay 2 follows temperature alert hysteresis.
+8. MANUAL behavior: relay POST commands switch to `MANUAL` and immediately apply the requested relay state.
+9. AWAY behavior: Relay 1 stays off; instant occupancy enters `ALERT` and turns Relay 2 on.
+10. Dashboard/API: verify `/`, `/api/status`, `/api/logs`, and all command routes.
+11. Relay fail-safe: verify `FAULT` forces both relay outputs off.
+12. AP fallback: leave Wi-Fi placeholders in `secrets.h.example` or omit local credentials and connect to `EdgeGuard-ESP32`.
