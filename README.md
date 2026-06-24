@@ -217,16 +217,6 @@ platformio.ini                   ESP32 and native PlatformIO environments
 
 Common issues include USB upload instability, fallback AP discovery, stale sensor faults, inverted LDR modules, inverted relay modules, DHT read errors, HC-SR04 no echo, dashboard refresh problems, and serial monitor settings. See [troubleshooting](docs/troubleshooting.md).
 
-## Roadmap
-
-- Enclosure-ready wiring diagram.
-- Richer dashboard graphs.
-- Optional MQTT bridge.
-- Optional OTA update path.
-- Authentication layer for non-lab networks.
-- Additional host tests around API JSON builders where practical.
-- Release demo video.
-
 ## Acknowledgements
 
 This project uses the ESP32 Arduino ecosystem, PlatformIO, FreeRTOS concepts, Adafruit DHT library support, Arduino community resources, and open-source embedded tooling.
